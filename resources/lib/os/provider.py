@@ -91,24 +91,32 @@ class SubtitlesProvider:
         if metadata['type'] == 'TVSeries':
             ep_index = f"S{metadata['season_number']:02d}E{metadata['episode_number']:02d}"
             logging(f"Ep index: {ep_index}")
-        response = self.handle_request(API_URL+"/searchMovie", data=data)
+    
+        response = self.handle_request(API_URL + "/searchMovie", data=data)
         logging(f"Search response: {response}")
-        if response['success']:
-            for item in response['found']:
-                logging(f"Item: {item}")
-                logging(f"Metadata: {metadata}")
-                if self.is_match_item(item, metadata):
-                    data = {'movieName': item['linkName']}
-                    if metadata['type'] == 'TVSeries':
-                         data['season'] = f"season-{metadata['season_number']}"
-                    response = self.handle_request(API_URL+"/getMovie", data=data)
-                    logging(f"Get movie response: {response}")
-                    logging(f"Ep index: {response['success']}")
-                    if response['success']:
-                        return self.filter_subs_by_language_and_epindex(response['subs'], 'Arabic', ep_index)
-                    else: 
-                        return None
-            return None 
+        
+        if not response['success']:
+            logging(f"No successful response from searchMovie API.")
+            return None
+    
+        for item in response['found']:
+            logging(f"Item: {item}")
+            if self.is_match_item(item, metadata):
+                data = {'movieName': item['linkName']}
+                if metadata['type'] == 'TVSeries':
+                    data['season'] = f"season-{metadata['season_number']}"
+                response = self.handle_request(API_URL + "/getMovie", data=data)
+                logging(f"Get movie response: {response}")
+    
+                if response['success']:
+                    return self.filter_subs_by_language_and_epindex(response['subs'], 'Arabic', ep_index)
+                else:
+                    logging(f"Failed to get movie details for {item['linkName']}.")
+                    return None
+    
+            logging(f"No matching subtitles found.")
+            return None
+
 
 
     def filter_subs_by_language_and_epindex(self, subs_list, target_language, ep_index=None):
