@@ -112,12 +112,20 @@ class SubtitlesProvider:
                 logging(f"Get movie response: {response}")
     
                 if response['success']:
-                    subtitles = self.filter_subs_by_language_and_epindex(response['subs'], 'Arabic', ep_index)
-                    logging(f"Filtered Subtitles: {subtitles}")
-                    return subtitles
+                    if 'subs' in response:
+                        subtitles = self.filter_subs_by_language_and_epindex(response['subs'], 'Arabic', ep_index)
+                        logging(f"Filtered Subtitles: {subtitles}")
+                        return subtitles
+                    else:
+                        logging(f"No 'subs' key found in the response.")
+                        return None
                 else:
                     logging(f"Failed to get movie details for {item['linkName']}.")
                     return None
+    
+        logging(f"No matching subtitles found.")
+        return None
+
     
         logging(f"No matching subtitles found.")
         return None
