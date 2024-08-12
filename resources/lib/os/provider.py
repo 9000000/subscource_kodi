@@ -114,8 +114,9 @@ class SubtitlesProvider:
                     logging(f"Failed to get movie details for {item['linkName']}.")
                     return None
     
-            logging(f"No matching subtitles found.")
-            return None
+        logging(f"No matching subtitles found.")
+        return None
+
 
 
 
