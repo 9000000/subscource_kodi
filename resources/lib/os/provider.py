@@ -86,6 +86,8 @@ class SubtitlesProvider:
 
     def search_subtitles(self, media_data: dict):
         metadata = self.parse_filename(media_data['query'])
+        logging(f"Parsed Metadata: {metadata}")
+        
         data = {'query': metadata['title']}
         ep_index = None
         if metadata['type'] == 'TVSeries':
@@ -94,7 +96,7 @@ class SubtitlesProvider:
     
         response = self.handle_request(API_URL + "/searchMovie", data=data)
         logging(f"Search response: {response}")
-        
+    
         if not response['success']:
             logging(f"No successful response from searchMovie API.")
             return None
@@ -102,6 +104,7 @@ class SubtitlesProvider:
         for item in response['found']:
             logging(f"Item: {item}")
             if self.is_match_item(item, metadata):
+                logging(f"Matched Item: {item}")
                 data = {'movieName': item['linkName']}
                 if metadata['type'] == 'TVSeries':
                     data['season'] = f"season-{metadata['season_number']}"
@@ -109,13 +112,16 @@ class SubtitlesProvider:
                 logging(f"Get movie response: {response}")
     
                 if response['success']:
-                    return self.filter_subs_by_language_and_epindex(response['subs'], 'Arabic', ep_index)
+                    subtitles = self.filter_subs_by_language_and_epindex(response['subs'], 'Arabic', ep_index)
+                    logging(f"Filtered Subtitles: {subtitles}")
+                    return subtitles
                 else:
                     logging(f"Failed to get movie details for {item['linkName']}.")
                     return None
     
         logging(f"No matching subtitles found.")
         return None
+
 
 
 
