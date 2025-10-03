@@ -84,64 +84,66 @@ class SubtitlesProvider:
             "episode_number": episodeIdx
         }
 
-    def search_subtitles(self, media_data: dict):
+    def search_subtitles(self, media_data: dict, languages: list):
         metadata = self.parse_filename(media_data['query'])
         logging(f"Parsed Metadata: {metadata}")
-        
+
         data = {'query': metadata['title']}
         ep_index = None
         if metadata['type'] == 'TVSeries':
             ep_index = f"S{metadata['season_number']:02d}E{metadata['episode_number']:02d}"
             logging(f"Ep index: {ep_index}")
-    
+
         response = self.handle_request(API_URL + "/searchMovie", data=data)
         logging(f"Search response: {response}")
-    
-        if not response['success']:
+
+        if not response.get('success'):
             logging(f"No successful response from searchMovie API.")
             return None
-    
-        for item in response['found']:
+
+        for item in response.get('found', []):
             logging(f"Item: {item}")
             if self.is_match_item(item, metadata):
                 logging(f"Matched Item: {item}")
                 data = {'movieName': item['linkName']}
                 if metadata['type'] == 'TVSeries':
                     data['season'] = f"season-{metadata['season_number']}"
-                response = self.handle_request(API_URL + "/getMovie", data=data)
-                logging(f"Get movie response: {response}")
-    
-                if response['success']:
-                    if 'subs' in response:
-                        subtitles = self.filter_subs_by_language_and_epindex(response['subs'], 'Arabic', ep_index)
-                        logging(f"Filtered Subtitles: {subtitles}")
-                        return subtitles
+
+                try:
+                    movie_response = self.handle_request(API_URL + "/getMovie", data=data)
+                    logging(f"Get movie response: {movie_response}")
+
+                    if movie_response.get('success') and 'subs' in movie_response:
+                        subtitles = self.filter_subs_by_language_and_epindex(movie_response['subs'], languages, ep_index)
+                        if subtitles:
+                            logging(f"Found and Filtered Subtitles: {subtitles}")
+                            return subtitles
                     else:
-                        logging(f"No 'subs' key found in the response.")
-                        return None
+                        logging(f"No 'subs' key in response or failed to get movie details for {item['linkName']}.")
+                except (ServiceUnavailable, ProviderError) as e:
+                    logging(f"Could not retrieve details for {item['linkName']}: {e}")
+                    continue
+
+        logging(f"No matching subtitles found after checking all matched items.")
+        return None
+
+    def filter_subs_by_language_and_epindex(self, subs_list, target_languages, ep_index=None):
+
+        target_languages_list = target_languages.split(',') if isinstance(target_languages, str) else target_languages
+
+
+        filtered_subs = []
+        for sub in subs_list:
+            if sub['lang'] in target_languages_list:
+                if ep_index:
+                    if ep_index in sub['releaseName']:
+                        filtered_subs.append(sub)
                 else:
-                    logging(f"Failed to get movie details for {item['linkName']}.")
-                    return None
-    
-        logging(f"No matching subtitles found.")
-        return None
-
-    
-        logging(f"No matching subtitles found.")
-        return None
-
-
-
-
-
-    def filter_subs_by_language_and_epindex(self, subs_list, target_language, ep_index=None):
-        if ep_index:
-            return [sub for sub in subs_list if sub['lang'] == target_language and ep_index in sub['releaseName']]
-        else:
-            return [sub for sub in subs_list if sub['lang'] == target_language]
+                    filtered_subs.append(sub)
+        return filtered_subs
         
     def is_match_item(self, item, metadata):
-        return self.is_match_year and self.is_match_title(item['title'], metadata['title'])
+        return self.is_match_year(item, metadata) and self.is_match_title(item['title'], metadata['title'])
 
     def is_match_year(self, item, metadata):
         return metadata['year'] is None or str(item['releaseYear']) == metadata['year']
